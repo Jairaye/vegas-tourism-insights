@@ -27,8 +27,8 @@ metric = st.sidebar.selectbox("Choose a metric to analyze:", metric_list, index=
 show_control_chart = st.sidebar.checkbox("Show Control Limits", value=True)
 show_rolling = st.sidebar.checkbox("Show 6-Month Rolling Avg", value=True)
 
-# Metric data
-series = df[metric].dropna()
+# Metric data (force numeric conversion)
+series = pd.to_numeric(df[metric], errors="coerce").dropna()
 rolling_mean = series.rolling(window=6, center=True).mean()
 rolling_std = series.rolling(window=6, center=True).std()
 upper = rolling_mean + 2 * rolling_std
@@ -63,5 +63,4 @@ if len(series) > 1:
     st.markdown(f"- 🔄 **Last Month Change**: {series.iloc[-2]:,.0f} → {series.iloc[-1]:,.0f} ({trend} {abs(delta):,.0f})")
 
 st.markdown("---")
-st.caption("Built by Jairaye • Powered by LVCVA Data")
-
+st.caption("Powered by LVCVA Data")
