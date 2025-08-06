@@ -36,7 +36,8 @@ lower = rolling_mean - 2 * rolling_std
 
 # Main line chart
 st.subheader(f"📈 {metric} Over Time")
-st.line_chart(series)
+st.line_chart(series.rename("value"))
+
 
 # Control Chart
 if show_control_chart:
