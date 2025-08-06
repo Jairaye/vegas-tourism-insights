@@ -1,8 +1,8 @@
-# streamlit_app/app.py
+# streamlit_app/app.py (Enhanced)
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 st.set_page_config(layout="wide")
 st.title("📊 Las Vegas Tourism Dashboard")
@@ -21,35 +21,47 @@ def load_data():
 df = load_data()
 
 # Sidebar options
-metric = st.sidebar.selectbox("Choose a metric to analyze:", df.columns.sort_values())
+metric_list = df.columns.sort_values()
+default_index = list(metric_list).index("Visitor Volume") if "Visitor Volume" in metric_list else 0
+metric = st.sidebar.selectbox("Choose a metric to analyze:", metric_list, index=default_index)
 show_control_chart = st.sidebar.checkbox("Show Control Limits", value=True)
+show_rolling = st.sidebar.checkbox("Show 6-Month Rolling Avg", value=True)
 
-# Main chart
+# Metric data
+series = df[metric].dropna()
+rolling_mean = series.rolling(window=6, center=True).mean()
+rolling_std = series.rolling(window=6, center=True).std()
+upper = rolling_mean + 2 * rolling_std
+lower = rolling_mean - 2 * rolling_std
+
+# Main line chart
 st.subheader(f"📈 {metric} Over Time")
-st.line_chart(df[metric].dropna())
+st.line_chart(series)
 
-# Control chart logic
+# Control Chart
 if show_control_chart:
     st.subheader("🔍 Control Chart")
-    series = df[metric].dropna()
-    rolling_mean = series.rolling(window=6, center=True).mean()
-    rolling_std = series.rolling(window=6, center=True).std()
-    upper = rolling_mean + 2 * rolling_std
-    lower = rolling_mean - 2 * rolling_std
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=series.index, y=series, mode='lines+markers', name='Actual'))
+    if show_rolling:
+        fig.add_trace(go.Scatter(x=rolling_mean.index, y=rolling_mean, mode='lines', name='Rolling Mean'))
+        fig.add_trace(go.Scatter(x=rolling_mean.index, y=upper, mode='lines', name='Upper Limit'))
+        fig.add_trace(go.Scatter(x=rolling_mean.index, y=lower, mode='lines', name='Lower Limit', fill='tonexty', fillcolor='rgba(255,165,0,0.2)'))
+    fig.update_layout(title=f"{metric} Control Chart", xaxis_title="Date", yaxis_title=metric, legend_title="Legend")
+    st.plotly_chart(fig, use_container_width=True)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(series.index, series.values, label="Actual", marker='o')
-    ax.plot(rolling_mean.index, rolling_mean.values, label="Rolling Mean", color='orange')
-    ax.fill_between(series.index, lower, upper, color='orange', alpha=0.2, label="±2σ Range")
-    ax.set_title(f"{metric} Control Chart")
-    ax.legend()
-    ax.grid(True)
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+# Quick insights
+st.subheader("📌 Quick Insights")
+high = series.idxmax()
+low = series.idxmin()
+delta = series.iloc[-1] - series.iloc[-2] if len(series) > 1 else 0
+trend = "⬆️" if delta > 0 else "⬇️"
 
-# Highlight highest/lowest month
-st.subheader("📌 Insights")
-high = df[metric].idxmax()
-low = df[metric].idxmin()
-st.markdown(f"- 📈 **Highest**: {high.strftime('%B %Y')} — {df[metric].max():,.0f}")
-st.markdown(f"- 📉 **Lowest**: {low.strftime('%B %Y')} — {df[metric].min():,.0f}")
+st.markdown(f"- 📈 **Highest**: {high.strftime('%B %Y')} — {series.max():,.0f}")
+st.markdown(f"- 📉 **Lowest**: {low.strftime('%B %Y')} — {series.min():,.0f}")
+if len(series) > 1:
+    st.markdown(f"- 🔄 **Last Month Change**: {series.iloc[-2]:,.0f} → {series.iloc[-1]:,.0f} ({trend} {abs(delta):,.0f})")
+
+st.markdown("---")
+st.caption("Built by Jairaye • Powered by LVCVA Data")
+
